@@ -66,6 +66,11 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
             <TouchableOpacity style={styles.button} onPress={handleLoginPress}>
                 <Text style={styles.buttonText}>Entrar</Text>
             </TouchableOpacity>
+           
+           <TouchableOpacity onPress={() => navigation.navigate('Register')} style={styles.link}>
+           <Text style={styles.linkText}>Não tem conta? Cadastre-se</Text>
+           </TouchableOpacity>
+
         </View>
     </View>
   );
