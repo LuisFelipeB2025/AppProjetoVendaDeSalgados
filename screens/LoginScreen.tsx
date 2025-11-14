@@ -1,145 +1,150 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+// IMPORTANTE: Assumindo que dbService está em um nível acima
+import { executeSql } from '../dbService'; 
 
-// 1. ATUALIZAÇÃO DAS PROPS: Adicionamos onNavigateToRegister
+// Adicionei o tipo AuthMode que estava no App.tsx para tipagem correta
 type LoginScreenProps = {
-  onLogin: () => void;
-  onNavigateToRegister: () => void; // Função para ir para a tela de registro
+    onLogin: () => void;
+    onNavigateToRegister: () => void;
 };
 
-// Removemos a importação de 'RegisterScreen' que não era usada aqui.
-// import RegisterScreen from '../screens/registerscreen'; 
-
 export default function LoginScreen({ onLogin, onNavigateToRegister }: LoginScreenProps) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+    const [email, setEmail] = useState('');
+    // Renomeado para 'senha' para consistência com a tabela 'usuarios'
+    const [senha, setSenha] = useState(''); 
+    const [loginError, setLoginError] = useState('');
 
-  const handleLoginPress = async () => {
-    if (!email || !password) {
-      Alert.alert("Erro", "Por favor, preencha o e-mail e a senha.");
-      return;
-    }
-  
-    try {
-      // NOTE: Substitua 'SEU_IP_LOCAL' pelo seu IP ou domínio real
-      const response = await fetch('http://SEU_IP_LOCAL:4000/registrar-login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email: email }),
-      });
-      
-      const responseData = await response.json();
-      
-      if (response.ok) {
-        console.log('Resposta do servidor:', responseData.message);
-      } else {
-        console.error('Erro do servidor:', responseData.message);
-      }
-    } catch (error) {
-      console.error('Falha ao conectar com o servidor:', error);
-      Alert.alert("Erro de Conexão", "Não foi possível registrar o login. Verifique o servidor.");
-    }
+    const handleLoginPress = async () => {
+        setLoginError(''); // Limpa erros anteriores
+        
+        if (!email || !senha) {
+            setLoginError("Por favor, preencha o e-mail e a senha.");
+            return;
+        }
+    
+        try {
+            // 1. Consulta SQL para verificar se o par email/senha existe na tabela 'usuarios'
+            const sql = `SELECT id FROM usuarios WHERE email = ? AND senha = ?`;
+            const result = await executeSql(sql, [email, senha]);
 
-    onLogin();
-  };
+            if (result.rows._array.length > 0) {
+                // SUCESSO: Credenciais válidas encontradas
+                onLogin();
+            } else {
+                // FALHA: Credenciais não encontradas
+                setLoginError("Usuário ou senha inválidos.");
+            }
+        } catch (error) {
+            console.error('Falha ao verificar login no DB:', error);
+            setLoginError("Erro ao tentar conectar com o banco de dados.");
+        }
+    };
 
-  return (
-    <View style={styles.container}>
-        <View style={styles.formContainer}>
-            <Text style={styles.title}>Bem-vindo</Text>
+    return (
+        <View style={styles.container}>
+            <View style={styles.formContainer}>
+                <Text style={styles.title}>Bem-vindo</Text>
 
-            <TextInput
-                style={styles.input}
-                placeholder="Digite seu e-mail"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={email}
-                onChangeText={setEmail}
-            />
+                <TextInput
+                    style={styles.input}
+                    placeholder="Digite seu e-mail"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    value={email}
+                    onChangeText={setEmail}
+                />
 
-            <TextInput
-                style={styles.input}
-                placeholder="Digite sua senha"
-                secureTextEntry={true}
-                value={password}
-                onChangeText={setPassword}
-            />
+                <TextInput
+                    style={styles.input}
+                    placeholder="Digite sua senha"
+                    secureTextEntry={true}
+                    value={senha}
+                    onChangeText={setSenha}
+                />
 
-            <TouchableOpacity style={styles.button} onPress={handleLoginPress}>
-                <Text style={styles.buttonText}>Entrar</Text>
-            </TouchableOpacity>
+                {/* Exibe a mensagem de erro aqui */}
+                {loginError ? <Text style={styles.errorText}>{loginError}</Text> : null}
 
-            {/* 2. NOVO BOTÃO DE REGISTRO */}
-            <TouchableOpacity 
-                style={styles.registerLink} 
-                onPress={onNavigateToRegister} // Chamamos a função recebida via props
-            >
-                <Text style={styles.registerText}>Não tem conta? Cadastre-se</Text>
-            </TouchableOpacity>
-        </View>
-    </View>
-  );
+                <TouchableOpacity style={styles.button} onPress={handleLoginPress}>
+                    <Text style={styles.buttonText}>Entrar</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                    style={styles.registerLink} 
+                    onPress={onNavigateToRegister}
+                >
+                    <Text style={styles.registerText}>Não tem conta? Cadastre-se</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-  },
-  formContainer: {
-    width: 320,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 10,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  input: {
-    width: '100%',
-    height: 45,
-    marginBottom: 20,
-    paddingHorizontal: 10,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-  },
-  button: {
-    width: '100%',
-    height: 45,
-    backgroundColor: '#4CAF50',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 5,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-    // NOVO ESTILO: Link para o registro
+    container: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+    },
+    formContainer: {
+        width: 320,
+        padding: 20,
+        borderWidth: 1,
+        borderColor: '#ccc',
+        borderRadius: 10,
+        backgroundColor: '#fff',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        elevation: 5,
+    },
+    title: {
+        fontSize: 28,
+        fontWeight: 'bold',
+        textAlign: 'center',
+        marginBottom: 20,
+    },
+    input: {
+        width: '100%',
+        height: 45,
+        marginBottom: 20,
+        paddingHorizontal: 10,
+        borderWidth: 1,
+        borderColor: '#ccc',
+        borderRadius: 5,
+    },
+    button: {
+        width: '100%',
+        height: 45,
+        backgroundColor: '#4CAF50',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: 5,
+    },
+    buttonText: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
     registerLink: {
         marginTop: 15,
         alignItems: 'center',
     },
     registerText: {
-        color: '#007bff', // Cor de link (azul, comum em cadastros)
+        color: '#007bff',
         fontSize: 14,
         fontWeight: '600',
         textDecorationLine: 'underline',
+    },
+    // NOVO ESTILO: Mensagem de erro
+    errorText: {
+        color: '#e74c3c', // Cor vermelha para erro
+        textAlign: 'center',
+        marginBottom: 15,
+        fontSize: 14,
+        fontWeight: '500',
     }
 });
