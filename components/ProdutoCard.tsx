@@ -1,10 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, LayoutAnimation, Platform, UIManager,Pressable} from 'react-native';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  TouchableOpacity, 
+  Image, 
+  LayoutAnimation, 
+  Platform, 
+  UIManager,
+  Pressable
+} from 'react-native';
 
-if (
-  Platform.OS === 'android' &&
-  UIManager.setLayoutAnimationEnabledExperimental
-) {
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
@@ -13,7 +20,7 @@ type Produto = {
   nome: string;
   preco: number;
   imagem?: any;
-  descricao?: string; 
+  descricao?: string;
 };
 
 type Props = {
@@ -26,7 +33,6 @@ export default function ProdutoCard({ produto, quantidade, setQuantidade }: Prop
   const [expanded, setExpanded] = useState(false);
 
   const toggleExpand = () => {
-    
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpanded(!expanded);
   };
@@ -35,10 +41,10 @@ export default function ProdutoCard({ produto, quantidade, setQuantidade }: Prop
     <Pressable 
       style={styles.card} 
       onPress={toggleExpand}
-      
-      android_ripple={{ color: '#ddd' }}
+      android_ripple={{ color: '#f0f0f0' }}
     >
       <View style={styles.headerContent}>
+        {/* Imagem menor (70px) */}
         <View style={styles.imageContainer}>
             {produto.imagem ? (
             <Image source={produto.imagem} style={styles.imagemProduto} />
@@ -48,45 +54,44 @@ export default function ProdutoCard({ produto, quantidade, setQuantidade }: Prop
         </View>
 
         <View style={styles.infoContainer}>
-            <Text style={styles.nome}>{produto.nome}</Text>
+            <View style={styles.titleRow}>
+                <Text style={styles.nome} numberOfLines={expanded ? 0 : 2}>{produto.nome}</Text>
+            </View>
             <Text style={styles.preco}>R$ {produto.preco.toFixed(2)}</Text>
             
-            
-            <Text style={styles.dicaExpandir}>
-                {expanded ? '▲ Menos detalhes' : '▼ Mais detalhes'}
-            </Text>
+            {!expanded && (
+                <Text style={styles.dicaExpandir}>Toque para detalhes</Text>
+            )}
         </View>
-      </View>
 
-      
-      {expanded && (
-        <View style={styles.descricaoContainer}>
-            <Text style={styles.descricaoTexto}>
-                {produto.descricao || "Este produto não possui uma descrição detalhada no momento. Ingredientes frescos e selecionados."}
-            </Text>
-        </View>
-      )}
-
-      
-      <View style={styles.footer}>
-        <View style={styles.controle}>
+        {/* Controles compactos */}
+        <View style={styles.controleCompacto}>
             <TouchableOpacity
-            style={[styles.botaoControle, { backgroundColor: '#f44336' }]}
-            onPress={() => setQuantidade(produto.id, Math.max(quantidade - 1, 0))}
+                style={[styles.botaoControle, { backgroundColor: '#ff5252' }]}
+                onPress={() => setQuantidade(produto.id, Math.max(quantidade - 1, 0))}
             >
-            <Text style={styles.botaoTexto}>-</Text>
+                <Text style={styles.botaoTexto}>-</Text>
             </TouchableOpacity>
 
             <Text style={styles.quantidade}>{quantidade}</Text>
 
             <TouchableOpacity
-            style={[styles.botaoControle, { backgroundColor: '#4CAF50' }]}
-            onPress={() => setQuantidade(produto.id, quantidade + 1)}
+                style={[styles.botaoControle, { backgroundColor: '#4CAF50' }]}
+                onPress={() => setQuantidade(produto.id, quantidade + 1)}
             >
-            <Text style={styles.botaoTexto}>+</Text>
+                <Text style={styles.botaoTexto}>+</Text>
             </TouchableOpacity>
         </View>
       </View>
+
+      {/* Descrição (Expandida) */}
+      {expanded && (
+        <View style={styles.descricaoContainer}>
+            <Text style={styles.descricaoTexto}>
+                {produto.descricao || "Ingredientes frescos e selecionados."}
+            </Text>
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -94,33 +99,32 @@ export default function ProdutoCard({ produto, quantidade, setQuantidade }: Prop
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 16, 
+    borderRadius: 10,
+    marginBottom: 10, // Menos margem entre cards
     marginHorizontal: 10,
-    padding: 12,
+    padding: 10, // Padding interno reduzido
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    overflow: 'hidden', 
+    shadowRadius: 3,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
     ...Platform.select({
-        web: {
-            transition: 'all 0.3s ease',
-            cursor: 'pointer'
-        } as any
+        web: { cursor: 'pointer', transition: '0.2s ease' } as any
     })
   },
   headerContent: {
-    flexDirection: 'row', 
+    flexDirection: 'row',
     alignItems: 'center',
   },
   imageContainer: {
-    width: 90, 
-    height: 90, 
+    width: 70,  // Reduzido de 90 para 70
+    height: 70, 
     borderRadius: 8,
     overflow: 'hidden',
-    marginRight: 12,
+    marginRight: 10,
+    backgroundColor: '#f9f9f9',
   },
   imagemProduto: {
     width: '100%',
@@ -130,63 +134,68 @@ const styles = StyleSheet.create({
   infoContainer: {
     flex: 1,
     justifyContent: 'center',
+    marginRight: 5,
+  },
+  titleRow: {
+    flexDirection: 'row', 
+    alignItems: 'flex-start'
   },
   nome: {
-    fontWeight: 'bold',
-    fontSize: 16, 
+    fontWeight: '600',
+    fontSize: 14, // Fonte levemente menor
     color: '#333',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   preco: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: 'bold',
-    color: '#2ecc71', 
+    color: '#2ecc71',
   },
   dicaExpandir: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#999',
-    marginTop: 4,
+    marginTop: 2,
   },
   descricaoContainer: {
-    marginTop: 12,
-    paddingTop: 10,
+    marginTop: 8,
+    paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingHorizontal: 4,
+    borderTopColor: '#f0f0f0',
   },
   descricaoTexto: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#666',
-    lineHeight: 20,
+    lineHeight: 18,
     fontStyle: 'italic',
   },
-  footer: {
-    marginTop: 12,
-    alignItems: 'flex-end', 
-  },
-  controle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  botaoControle: {
-    width: 32, 
-    height: 32,
-    borderRadius: 16,
+  controleCompacto: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 8,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 20,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
+  botaoControle: {
+    width: 28, 
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 1,
   },
   botaoTexto: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-    lineHeight: 20,
-  },
-  quantidade: {
     fontSize: 16,
     fontWeight: 'bold',
+    lineHeight: 18,
+  },
+  quantidade: {
+    fontSize: 14,
+    fontWeight: 'bold',
     color: '#333',
-    minWidth: 20,
+    marginVertical: 4,
+    minWidth: 16,
     textAlign: 'center',
   },
 });
