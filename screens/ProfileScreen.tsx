@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, StatusBar } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; 
 
 type Props = {
     user: any;
@@ -8,6 +9,7 @@ type Props = {
 
 export default function ProfileScreen({ user, onBack }: Props) {
     const [showDetails, setShowDetails] = useState(false);
+    const insets = useSafeAreaInsets();
 
     const userName = user?.nome || 'Usuário';
     const userEmail = user?.email || 'Não cadastrado';
@@ -20,12 +22,12 @@ export default function ProfileScreen({ user, onBack }: Props) {
     const cep = user?.cep || 'CEP não informado';
 
     const handleToggleDetails = () => {
-        // Se a segurança for alta, você pode pedir a senha aqui antes de mostrar.
         setShowDetails(!showDetails);
     };
 
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <View style={[styles.safeArea, { paddingTop: insets.top }]}>
+             <StatusBar barStyle="dark-content" />
             <View style={styles.header}>
                 <TouchableOpacity onPress={onBack} style={styles.backButton}>
                     <Text style={styles.backArrow}>←</Text>
@@ -78,6 +80,7 @@ export default function ProfileScreen({ user, onBack }: Props) {
                             </View>
                             <View style={styles.dividerThin} />
 
+                            {/* ENDEREÇO COMPLETO CORRIGIDO */}
                             <View style={styles.infoRow}>
                                 <Text style={styles.label}>📍 Endereço:</Text>
                                 <View style={styles.addressBlock}>
@@ -90,7 +93,7 @@ export default function ProfileScreen({ user, onBack }: Props) {
                     )}
                 </View>
             </View>
-        </SafeAreaView>
+        </View>
     );
 }
 
@@ -108,7 +111,6 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.05,
         shadowRadius: 2,
         shadowOffset: { width: 0, height: 2 },
-        paddingTop: Platform.OS === 'android' ? 40 : 15 
     },
     backButton: { flexDirection: 'row', alignItems: 'center', padding: 5 },
     backArrow: { fontSize: 24, color: '#ff6600', marginRight: 5 },
@@ -143,10 +145,8 @@ const styles = StyleSheet.create({
     valueSub: { fontSize: 15, color: '#555', marginTop: 2, marginLeft: 15 },
     valueHighlight: { fontSize: 16, color: '#4CAF50', fontWeight: 'bold' },
     divider: { height: 1, backgroundColor: '#f0f0f0', marginVertical: 12 },
-    dividerThin: { height: 1, backgroundColor: '#f5f5f5', marginVertical: 8 }, // Mais fina para detalhes
+    dividerThin: { height: 1, backgroundColor: '#f5f5f5', marginVertical: 8 }, 
     addressBlock: { paddingLeft: 5, marginTop: 5 },
-
-    // NOVOS ESTILOS PARA O BOTÃO DETALHES
     detailButton: {
         backgroundColor: '#f5f7fa',
         padding: 12,
@@ -156,7 +156,6 @@ const styles = StyleSheet.create({
         marginBottom: 10,
         borderWidth: 1,
         borderColor: '#e0e0e0',
-        ...Platform.select({ web: { cursor: 'pointer' } as any })
     },
     detailButtonText: {
         color: '#ff6600',

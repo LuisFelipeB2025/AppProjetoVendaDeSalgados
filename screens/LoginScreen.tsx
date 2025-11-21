@@ -8,21 +8,26 @@ import {
     Platform, 
     KeyboardAvoidingView, 
     ScrollView, 
-    SafeAreaView, 
+    // SafeAreaView removido
     ImageBackground, 
     Image, 
     StatusBar 
 } from 'react-native';
 import { executeSql } from '../dbService'; 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 
 type LoginScreenProps = { onLogin: (user: any) => void; onNavigateToRegister: () => void; };
 
 export default function LoginScreen({ onLogin, onNavigateToRegister }: LoginScreenProps) {
-    const [email, setEmail] = useState(''); // Volta para Email
+    const [email, setEmail] = useState('');
     const [senha, setSenha] = useState(''); 
     const [loading, setLoading] = useState(false);
     const [loginError, setLoginError] = useState('');
+    
+    const insets = useSafeAreaInsets(); 
 
+    // PADRÃO DE IMAGENS APLICADO
     const BACKGROUND_IMAGE = require('../assets/IMGF.png'); 
     const LOGO_IMAGE = require('../assets/LGT.png');
 
@@ -32,15 +37,16 @@ export default function LoginScreen({ onLogin, onNavigateToRegister }: LoginScre
     
         setLoading(true);
         try {
-            // Busca por EMAIL agora
+            // SELECT por EMAIL
             const sql = `SELECT * FROM usuarios WHERE email = ? AND senha = ?`;
             const result = await executeSql(sql, [email, senha]);
 
             if (result.rows._array.length > 0) {
                 const user = result.rows._array[0];
                 
-                // Atualiza o último login
+                // ATUALIZAR LAST_LOGIN
                 const now = new Date().toLocaleString('pt-BR');
+                // IMPORTANTE: O UPDATE deve usar o ID (chave primária)
                 await executeSql(`UPDATE usuarios SET last_login = ? WHERE id = ?`, [now, user.id]);
                 
                 user.last_login = now; 
@@ -50,7 +56,7 @@ export default function LoginScreen({ onLogin, onNavigateToRegister }: LoginScre
             }
         } catch (error) {
             console.error(error);
-            setLoginError("Erro no login.");
+            setLoginError("Erro no login. Tente novamente.");
         } finally {
             setLoading(false);
         }
@@ -58,9 +64,13 @@ export default function LoginScreen({ onLogin, onNavigateToRegister }: LoginScre
     
     return (
         <ImageBackground source={BACKGROUND_IMAGE} style={styles.backgroundImage} resizeMode="cover">
-             <View style={styles.overlay}>
-                <SafeAreaView style={styles.safeArea}>
-                    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.container}>
+             <View style={[styles.overlay, { paddingTop: insets.top, paddingBottom: insets.bottom }]}> 
+                
+                    <StatusBar barStyle="light-content" />
+                    <KeyboardAvoidingView 
+                        behavior={Platform.OS === "ios" ? "padding" : "height"} 
+                        style={styles.container}
+                    >
                         <ScrollView contentContainerStyle={styles.scrollContainer}>
                             <View style={styles.logoContainer}>
                                 <Image source={LOGO_IMAGE} style={styles.logo} />
@@ -69,7 +79,6 @@ export default function LoginScreen({ onLogin, onNavigateToRegister }: LoginScre
                             <View style={styles.formContainer}>
                                 <Text style={styles.title}>Bem-vindo</Text>
                                 
-                                {/* CAMPO DE EMAIL RESTAURADO */}
                                 <View style={styles.inputGroup}>
                                     <Text style={styles.label}>E-mail</Text>
                                     <TextInput 
@@ -106,7 +115,7 @@ export default function LoginScreen({ onLogin, onNavigateToRegister }: LoginScre
                             </View>
                         </ScrollView>
                     </KeyboardAvoidingView>
-                </SafeAreaView>
+                
             </View>
         </ImageBackground>
     );
@@ -115,7 +124,6 @@ export default function LoginScreen({ onLogin, onNavigateToRegister }: LoginScre
 const styles = StyleSheet.create({ 
     backgroundImage: { flex: 1, width: '100%', height: '100%' }, 
     overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }, 
-    safeArea: { flex: 1 }, 
     container: { flex: 1 }, 
     scrollContainer: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }, 
     logoContainer: { marginBottom: 25, alignItems: 'center' }, 

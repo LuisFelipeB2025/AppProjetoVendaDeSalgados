@@ -9,19 +9,18 @@ import {
     ScrollView, 
     KeyboardAvoidingView, 
     Platform,
-    SafeAreaView,
     Animated, 
     ActivityIndicator,
-    ImageBackground, // Para o fundo personalizado
+    ImageBackground, 
     StatusBar
 } from 'react-native';
 
 import { executeSql } from '../dbService'; 
+// NOVO IMPORT
+import { useSafeAreaInsets } from 'react-native-safe-area-context';77
 
-type Props = {
-    onRegisterSuccess: () => void; 
-    onBack: () => void; 
-};
+
+type Props = { onRegisterSuccess: () => void; onBack: () => void; };
 
 export default function RegisterScreen({ onRegisterSuccess, onBack }: Props) {
     const [nome, setNome] = useState('');
@@ -39,89 +38,46 @@ export default function RegisterScreen({ onRegisterSuccess, onBack }: Props) {
     const [isSuccess, setIsSuccess] = useState(false);
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
-    // IMAGEM DE FUNDO
-    const BACKGROUND_IMAGE = require('../assets/IMGF2.png');
+    const insets = useSafeAreaInsets(); // Hook para pegar as margens seguras
+
+    const BACKGROUND_IMAGE = require("../assets/IMGF2.png");
     
-    // --- FUNÇÃO DE VALIDAÇÃO DE SENHA (NOVA) ---
+    // ... Funções auxiliares (validarSenha, buscarEndereco, formatarCep, formatarTel, handleRegistro) ...
     const validarSenha = (password: string): string | null => {
-        if (password.length > 11) {
-            return "A senha deve ter no máximo 11 caracteres.";
-        }
-        
-        // Caracteres permitidos: letras (a-zA-Z), números (0-9) e os símbolos especiais.
-        // Símbolos considerados: !@#$%&*?
+        if (password.length > 11) return "A senha deve ter no máximo 11 caracteres.";
         const allowedCharsRegex = /^[a-zA-Z0-9!@#$%&*?]+$/;
-        
-        if (!allowedCharsRegex.test(password)) {
-            return "Contém caracteres não permitidos. Use apenas letras, números e !@#$%&*?.";
-        }
-        
-        // Conta símbolos especiais
+        if (!allowedCharsRegex.test(password)) return "Contém caracteres não permitidos. Use apenas letras, números e !@#$%&*?.";
         const specialCharCount = (password.match(/[!@#$%&*?]/g) || []).length;
-        
-        if (specialCharCount !== 2) {
-            return "A senha deve conter exatamente 2 símbolos especiais (!@#$%&*?).";
-        }
-
-        // Verifica se contém letras e números (para não aceitar só símbolos)
-        if (!(/[a-zA-Z]/.test(password) && /\d/.test(password))) {
-             return "A senha deve conter pelo menos uma letra e um número.";
-        }
-        
-        return null; // Senha válida
+        if (specialCharCount !== 2) return "A senha deve conter exatamente 2 símbolos especiais (!@#$%&*?).";
+        if (!(/[a-zA-Z]/.test(password) && /\d/.test(password))) return "A senha deve conter pelo menos uma letra e um número.";
+        return null; 
     };
-    // ---------------------------------------------
-
 
     const buscarEndereco = async (cepDigitado: string) => {
         const cepLimpo = cepDigitado.replace(/\D/g, '');
         if (cepLimpo.length !== 8) return;
-
         setBuscandoCep(true);
         try {
             const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
             const data = await response.json();
-
-            if (data.erro) {
-                Alert.alert("CEP não encontrado", "Verifique o número digitado.");
-                setRua('');
-                setBairro('');
-            } else {
-                setRua(data.logradouro || '');
-                setBairro(data.bairro || '');
-            }
-        } catch (error) {
-            console.error("Erro ao buscar CEP:", error);
-            Alert.alert("Erro", "Falha ao buscar o endereço. Preencha manualmente.");
-        } finally {
-            setBuscandoCep(false);
-        }
+            if (!data.erro) { setRua(data.logradouro || ''); setBairro(data.bairro || ''); }
+        } catch (error) {} finally { setBuscandoCep(false); }
     };
 
     const handleCepChange = (text: string) => {
         const numeric = text.replace(/\D/g, '');
         let formatted = numeric;
-        if (numeric.length > 5) {
-            formatted = numeric.replace(/^(\d{5})(\d)/, '$1-$2');
-        }
+        if (numeric.length > 5) formatted = numeric.replace(/^(\d{5})(\d)/, '$1-$2');
         setCep(formatted);
-
-        if (numeric.length === 8) {
-            buscarEndereco(numeric);
-        }
+        if (numeric.length === 8) buscarEndereco(numeric);
     };
-
+    
     const handleTelefoneChange = (text: string) => {
         let cleaned = text.replace(/\D/g, '');
         if (cleaned.length > 11) cleaned = cleaned.slice(0, 11);
-
         let formatted = cleaned;
-        if (cleaned.length > 2) {
-            formatted = `(${cleaned.slice(0, 2)}) ${cleaned.slice(2)}`;
-        }
-        if (cleaned.length > 7) {
-            formatted = `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7)}`;
-        }
+        if (cleaned.length > 2) formatted = `(${cleaned.slice(0, 2)}) ${cleaned.slice(2)}`;
+        if (cleaned.length > 7) formatted = `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7)}`;
         setTelefone(formatted);
     };
 
@@ -129,62 +85,40 @@ export default function RegisterScreen({ onRegisterSuccess, onBack }: Props) {
         if (loading) return;
         setLoading(true);
 
-        if (!nome || !cep || !rua || !numero || !bairro || !telefone || !email || !senha || !confirmarSenha) {
+        if (!nome || !cep || !rua || !numero || !bairro || !telefone || !email || !senha) {
             Alert.alert('Atenção', 'Todos os campos são obrigatórios.');
-            setLoading(false);
-            return;
+            setLoading(false); return;
         }
-        
         if (senha !== confirmarSenha) {
-            Alert.alert('Erro de Senha', 'As senhas não coincidem.');
-            setLoading(false);
-            return;
+            Alert.alert('Erro', 'As senhas não coincidem.');
+            setLoading(false); return;
         }
         
-        // --- VALIDAÇÃO DA SENHA APLICADA AQUI ---
         const erroSenha = validarSenha(senha);
         if (erroSenha) {
             Alert.alert('Senha Inválida', erroSenha);
-            setLoading(false);
-            return;
+            setLoading(false); return;
         }
-        // ------------------------------------------
         
         try {
             const checkSql = `SELECT id FROM usuarios WHERE telefone = ?`;
             const checkResult = await executeSql(checkSql, [telefone]);
 
             if (checkResult.rows._array.length > 0) {
-                Alert.alert('Telefone já cadastrado', 'Este número já possui uma conta.');
-                setLoading(false);
-                return;
+                Alert.alert('Erro', 'Telefone já cadastrado.');
+                setLoading(false); return;
             }
 
             const insertSql = `INSERT INTO usuarios (nome, cep, rua, numero, bairro, telefone, email, senha) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
             await executeSql(insertSql, [nome, cep, rua, numero, bairro, telefone, email, senha]);
 
             setIsSuccess(true);
-            
-            Animated.timing(fadeAnim, {
-                toValue: 1,
-                duration: 600, 
-                useNativeDriver: true,
-            }).start();
-
-            setTimeout(() => {
-                setNome(''); setCep(''); setRua(''); setNumero(''); setBairro(''); setTelefone(''); setEmail(''); setSenha(''); setConfirmarSenha('');
-                onRegisterSuccess();
-            }, 2000);
+            Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
+            setTimeout(() => onRegisterSuccess(), 2000);
 
         } catch (error: any) {
-            console.error('Erro no registro:', error);
-            let errorMessage = 'Erro ao criar conta.';
-            if (error?.message?.includes('no such table') || error?.message?.includes('has no column')) {
-                 errorMessage = "Erro de versão: O banco de dados está desatualizado. REINSTALE o aplicativo.";
-            } else if (error?.message?.includes('UNIQUE constraint failed')) {
-                 errorMessage = "Este telefone já está cadastrado.";
-            }
-            Alert.alert('Erro', errorMessage);
+            console.error('Erro:', error);
+            Alert.alert('Erro', 'Falha ao criar conta. Reinstale o app para atualizar o banco.');
             setLoading(false); 
         } 
     };
@@ -206,8 +140,8 @@ export default function RegisterScreen({ onRegisterSuccess, onBack }: Props) {
 
     return (
         <ImageBackground source={BACKGROUND_IMAGE} style={styles.backgroundImage} resizeMode="cover">
-            <View style={styles.overlay}>
-                <SafeAreaView style={styles.safeArea}>
+            <View style={[styles.overlay, { paddingTop: insets.top, paddingBottom: insets.bottom }]}> {/* Aplica insets aqui */}
+                {/* <SafeAreaView style={styles.safeArea}> REMOVIDO */}
                     <StatusBar barStyle="light-content" />
                     <KeyboardAvoidingView 
                         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -356,9 +290,8 @@ export default function RegisterScreen({ onRegisterSuccess, onBack }: Props) {
                             </View>
                         </ScrollView>
                     </KeyboardAvoidingView>
-                </SafeAreaView>
-            </View>
-        </ImageBackground>
+                </View>
+ </ImageBackground>
     );
 }
 

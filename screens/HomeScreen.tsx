@@ -4,7 +4,7 @@ import {
   FlatList, 
   StyleSheet, 
   Image, 
-  SafeAreaView, 
+  // SafeAreaView removido
   StatusBar,
   TouchableOpacity,
   Text,
@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 
 import ProdutoCard from '../components/ProdutoCard';
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; // NOVO IMPORT
 
 type Props = {
   onLogout?: () => void;
@@ -24,7 +25,7 @@ type Props = {
   onNavigateToProfile?: () => void; // Propriedade de navegação
 };
 
-// NÚMERO DO WHATSAPP DA LOJA (Ajuste aqui)
+// NÚMERO DO WHATSAPP DA LOJA
 const NUMERO_DA_LOJA = '5521969714096'; 
 
 const PRODUTOS_SALGADOS = [
@@ -76,6 +77,9 @@ export default function HomeScreen({ onLogout, user, onNavigateToProfile }: Prop
   const [quantidades, setQuantidades] = useState<{[key: string]: number}>({});
   const [menuVisible, setMenuVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
+  
+  // Hook para obter as margens seguras (topo e fundo)
+  const insets = useSafeAreaInsets(); 
 
   const handleSetQuantidade = (id: string, valor: number) => {
     setQuantidades(prev => ({ ...prev, [id]: valor }));
@@ -116,10 +120,9 @@ export default function HomeScreen({ onLogout, user, onNavigateToProfile }: Prop
         return;
     }
 
-    // --- MONTAGEM DA MENSAGEM (SEM EMAIL) ---
-    let mensagem = `*NOVO PEDIDO - LGT Salgados*\n\n`;
+    let mensagem = `*NOVO PEDIDO - Dunamis Salgados/Assados*\n\n`;
     
-    // Nome e Telefone
+    // Dados do Cliente
     mensagem += `*Cliente:* ${user?.nome || 'Não informado'}\n`;
     mensagem += `*Telefone:* ${user?.telefone || 'Não informado'}\n\n`;
     
@@ -161,9 +164,11 @@ export default function HomeScreen({ onLogout, user, onNavigateToProfile }: Prop
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    // Aplica a margem segura superior no container principal
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" backgroundColor="#fafafa" />
       
+      {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.menuButton} onPress={() => setMenuVisible(true)}>
           <Text style={styles.menuIcon}>☰</Text>
@@ -177,6 +182,7 @@ export default function HomeScreen({ onLogout, user, onNavigateToProfile }: Prop
         <View style={styles.headerRightPlaceholder} />
       </View>
 
+      {/* BARRA DE PESQUISA */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBox}>
             <Text style={styles.searchIcon}>🔍</Text>
@@ -195,6 +201,7 @@ export default function HomeScreen({ onLogout, user, onNavigateToProfile }: Prop
         </View>
       </View>
 
+      {/* LISTA */}
       <FlatList
         data={produtosFiltrados}
         keyExtractor={(item) => item.id}
@@ -212,7 +219,8 @@ export default function HomeScreen({ onLogout, user, onNavigateToProfile }: Prop
         }
       />
 
-      <View style={styles.checkoutContainer}>
+      {/* RODAPÉ DE COMPRA (APLICA INSETS INFERIORES) */}
+      <View style={[styles.checkoutContainer, { paddingBottom: insets.bottom + 15 }]}>
           <View style={styles.checkoutInfo}>
               <Text style={styles.checkoutLabel}>Total a Pagar</Text>
               <Text style={[
@@ -237,6 +245,7 @@ export default function HomeScreen({ onLogout, user, onNavigateToProfile }: Prop
           </TouchableOpacity>
       </View>
 
+      {/* MODAL DO MENU */}
       <Modal
         visible={menuVisible}
         transparent={true}
@@ -260,7 +269,6 @@ export default function HomeScreen({ onLogout, user, onNavigateToProfile }: Prop
                     </View>
                     <View style={styles.divider} />
                     
-                    {/* BOTÃO MEU PERFIL: Conectado à rota de navegação */}
                     <TouchableOpacity style={styles.menuItem} onPress={() => {
                         setMenuVisible(false);
                         if (onNavigateToProfile) onNavigateToProfile();
@@ -281,7 +289,7 @@ export default function HomeScreen({ onLogout, user, onNavigateToProfile }: Prop
         </TouchableWithoutFeedback>
       </Modal>
 
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -304,7 +312,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     zIndex: 10,
-    paddingTop: Platform.OS === 'android' ? 10 : 0, 
+    // paddingTop: Platform.OS === 'android' ? 10 : 0, - REMOVIDO: margem já está no container
   },
   menuButton: { padding: 5 },
   menuIcon: { fontSize: 28, color: '#333' },
@@ -359,7 +367,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 10,
     zIndex: 100,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 15,
+    // paddingBottom será ajustado dinamicamente pelo insets
   },
   checkoutInfo: {
     flexDirection: 'column',
