@@ -8,14 +8,16 @@ import {
     Platform, 
     KeyboardAvoidingView, 
     ScrollView, 
-    // SafeAreaView removido
     ImageBackground, 
     Image, 
-    StatusBar 
+    StatusBar,
+    Alert
 } from 'react-native';
-import { executeSql } from '../dbService'; 
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+// 1. IMPORT DO SUPABASE (Substituindo o dbService antigo)
+import { supabase } from '../BancoDeDados';
+
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type LoginScreenProps = { onLogin: (user: any) => void; onNavigateToRegister: () => void; };
 
@@ -27,36 +29,55 @@ export default function LoginScreen({ onLogin, onNavigateToRegister }: LoginScre
     
     const insets = useSafeAreaInsets(); 
 
-    // PADRÃO DE IMAGENS APLICADO
     const BACKGROUND_IMAGE = require('../assets/IMGF.png'); 
     const LOGO_IMAGE = require('../assets/LGT.png');
 
+    // --- NOVA LÓGICA DE LOGIN (SUPABASE) ---
     const handleLoginPress = async () => {
         setLoginError('');
-        if (!email || !senha) { setLoginError("Preencha e-mail e senha."); return; }
+        
+        if (!email || !senha) { 
+            setLoginError("Preencha e-mail e senha."); 
+            return; 
+        }
     
         setLoading(true);
         try {
-            // SELECT por EMAIL
-            const sql = `SELECT * FROM usuarios WHERE email = ? AND senha = ?`;
-            const result = await executeSql(sql, [email, senha]);
+            // PASSO 1: Autenticar (Verifica Email e Senha no Auth do Supabase)
+            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                email: email,
+                password: senha,
+            });
 
-            if (result.rows._array.length > 0) {
-                const user = result.rows._array[0];
-                
-                // ATUALIZAR LAST_LOGIN
-                const now = new Date().toLocaleString('pt-BR');
-                // IMPORTANTE: O UPDATE deve usar o ID (chave primária)
-                await executeSql(`UPDATE usuarios SET last_login = ? WHERE id = ?`, [now, user.id]);
-                
-                user.last_login = now; 
-                onLogin(user);
-            } else {
-                setLoginError("E-mail ou senha inválidos.");
+            if (authError) {
+                throw new Error("E-mail ou senha incorretos.");
             }
-        } catch (error) {
+
+            // PASSO 2: Buscar dados completos na tabela 'usuarios'
+            // O auth só devolve ID e Email. Se você precisa do Nome/Telefone, buscamos aqui:
+            const { data: userData, error: userError } = await supabase
+                .from('usuarios')
+                .select('*')
+                .eq('email', email)
+                .single(); // Pega apenas 1
+
+            if (userError || !userData) {
+                throw new Error("Usuário autenticado, mas perfil não encontrado.");
+            }
+
+            // PASSO 3: Atualizar 'last_login' na nuvem (Opcional, mas mantém sua lógica antiga)
+            const now = new Date().toISOString(); // Supabase prefere formato ISO
+            await supabase
+                .from('usuarios')
+                .update({ last_login: now }) // Precisaria ter essa coluna no banco (se não tiver, comente essa linha)
+                .eq('id', userData.id);
+
+            // Sucesso! Passa o usuário completo para o App
+            onLogin({ ...userData, last_login: now });
+
+        } catch (error: any) {
             console.error(error);
-            setLoginError("Erro no login. Tente novamente.");
+            setLoginError(error.message || "Erro no login. Tente novamente.");
         } finally {
             setLoading(false);
         }
@@ -89,6 +110,7 @@ export default function LoginScreen({ onLogin, onNavigateToRegister }: LoginScre
                                         autoCapitalize="none"
                                         value={email} 
                                         onChangeText={setEmail} 
+                                        editable={!loading}
                                     />
                                 </View>
 
@@ -100,6 +122,7 @@ export default function LoginScreen({ onLogin, onNavigateToRegister }: LoginScre
                                         secureTextEntry 
                                         value={senha} 
                                         onChangeText={setSenha} 
+                                        editable={!loading}
                                     />
                                 </View>
 
@@ -109,7 +132,7 @@ export default function LoginScreen({ onLogin, onNavigateToRegister }: LoginScre
                                     <Text style={styles.buttonText}>{loading ? "Entrando..." : "Entrar"}</Text>
                                 </TouchableOpacity>
                                 
-                                <TouchableOpacity style={styles.registerLink} onPress={onNavigateToRegister}>
+                                <TouchableOpacity style={styles.registerLink} onPress={onNavigateToRegister} disabled={loading}>
                                     <Text style={styles.registerText}>Criar conta</Text>
                                 </TouchableOpacity>
                             </View>
@@ -121,6 +144,9 @@ export default function LoginScreen({ onLogin, onNavigateToRegister }: LoginScre
     );
 }
 
+// ------------------------------------------------------------------
+// ESTILOS VISUAIS (Idênticos ao seu original)
+// ------------------------------------------------------------------
 const styles = StyleSheet.create({ 
     backgroundImage: { flex: 1, width: '100%', height: '100%' }, 
     overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }, 

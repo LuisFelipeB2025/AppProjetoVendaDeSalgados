@@ -9,7 +9,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.83.0",
+    "@supabase/supabase-js": "^2.84.0",
     "cors": "^2.8.5",
     "expo": "54.0.21",
     "expo-secure-store": "~15.0.7",

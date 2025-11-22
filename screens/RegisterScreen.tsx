@@ -15,10 +15,13 @@ import {
     StatusBar
 } from 'react-native';
 
-import { executeSql } from '../dbService'; 
-// NOVO IMPORT
-import { useSafeAreaInsets } from 'react-native-safe-area-context';77
+// ---------------------------------------------------------
+// MUDANÇA 1: Importamos o cliente do Supabase e removemos o SQL antigo
+// Certifique-se de que o caminho '../services/database' está correto
+import { supabase } from '../BancoDeDados'; 
+// ---------------------------------------------------------
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Props = { onRegisterSuccess: () => void; onBack: () => void; };
 
@@ -32,17 +35,17 @@ export default function RegisterScreen({ onRegisterSuccess, onBack }: Props) {
     const [email, setEmail] = useState('');
     const [senha, setSenha] = useState('');
     const [confirmarSenha, setConfirmarSenha] = useState('');
+    
     const [loading, setLoading] = useState(false);
     const [buscandoCep, setBuscandoCep] = useState(false); 
     
     const [isSuccess, setIsSuccess] = useState(false);
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
-    const insets = useSafeAreaInsets(); // Hook para pegar as margens seguras
-
+    const insets = useSafeAreaInsets();
     const BACKGROUND_IMAGE = require("../assets/IMGF2.png");
     
-    // ... Funções auxiliares (validarSenha, buscarEndereco, formatarCep, formatarTel, handleRegistro) ...
+    // --- Validações e Formatações (Mantidas iguais) ---
     const validarSenha = (password: string): string | null => {
         if (password.length > 11) return "A senha deve ter no máximo 11 caracteres.";
         const allowedCharsRegex = /^[a-zA-Z0-9!@#$%&*?]+$/;
@@ -60,8 +63,17 @@ export default function RegisterScreen({ onRegisterSuccess, onBack }: Props) {
         try {
             const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
             const data = await response.json();
-            if (!data.erro) { setRua(data.logradouro || ''); setBairro(data.bairro || ''); }
-        } catch (error) {} finally { setBuscandoCep(false); }
+            if (!data.erro) { 
+                setRua(data.logradouro || ''); 
+                setBairro(data.bairro || ''); 
+            } else {
+                Alert.alert("Atenção", "CEP não encontrado.");
+            }
+        } catch (error) {
+            // Silencioso ou alert
+        } finally { 
+            setBuscandoCep(false); 
+        }
     };
 
     const handleCepChange = (text: string) => {
@@ -81,46 +93,80 @@ export default function RegisterScreen({ onRegisterSuccess, onBack }: Props) {
         setTelefone(formatted);
     };
 
+    // --- NOVA LÓGICA DE REGISTRO COM SUPABASE ---
     const handleRegistro = async () => {
         if (loading) return;
-        setLoading(true);
-
+        
+        // 1. Validações Básicas
         if (!nome || !cep || !rua || !numero || !bairro || !telefone || !email || !senha) {
             Alert.alert('Atenção', 'Todos os campos são obrigatórios.');
-            setLoading(false); return;
+            return;
         }
         if (senha !== confirmarSenha) {
             Alert.alert('Erro', 'As senhas não coincidem.');
-            setLoading(false); return;
+            return;
         }
-        
         const erroSenha = validarSenha(senha);
         if (erroSenha) {
             Alert.alert('Senha Inválida', erroSenha);
-            setLoading(false); return;
+            return;
         }
-        
-        try {
-            const checkSql = `SELECT id FROM usuarios WHERE telefone = ?`;
-            const checkResult = await executeSql(checkSql, [telefone]);
 
-            if (checkResult.rows._array.length > 0) {
-                Alert.alert('Erro', 'Telefone já cadastrado.');
-                setLoading(false); return;
+        setLoading(true);
+
+        try {
+            // 2. Cria o usuário no sistema de Autenticação do Supabase
+            const { data: authData, error: authError } = await supabase.auth.signUp({
+                email: email,
+                password: senha,
+            });
+
+            if (authError) {
+                // Tratamento de erro específico do Supabase
+                if (authError.message.includes("already registered") || authError.status === 422) {
+                    throw new Error("Este e-mail já está cadastrado.");
+                }
+                throw authError;
             }
 
-            const insertSql = `INSERT INTO usuarios (nome, cep, rua, numero, bairro, telefone, email, senha) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-            await executeSql(insertSql, [nome, cep, rua, numero, bairro, telefone, email, senha]);
+            if (authData.user) {
+                // 3. Se o login foi criado, salva os dados do perfil na tabela 'usuarios'
+                const { error: dbError } = await supabase
+                    .from('usuarios')
+                    .insert({
+                        // Não precisamos mandar ID se for auto-increment, 
+                        // mas se quiser vincular ao login: user_id: authData.user.id
+                        nome: nome,
+                        email: email,
+                        telefone: telefone,
+                        cep: cep,
+                        rua: rua,
+                        numero: numero,
+                        bairro: bairro,
+                        // created_at é automático
+                    });
 
-            setIsSuccess(true);
-            Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
-            setTimeout(() => onRegisterSuccess(), 2000);
+                if (dbError) {
+                    // Se der erro ao salvar o perfil (ex: telefone duplicado se tiver unique key)
+                    throw new Error("Erro ao salvar dados do perfil: " + dbError.message);
+                }
+
+                // 4. Sucesso!
+                setIsSuccess(true);
+                Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
+                
+                // Opcional: Registrar Log de novo cadastro
+                // await registrarAcesso('NOVO_CADASTRO', { email: email });
+
+                setTimeout(() => onRegisterSuccess(), 2000);
+            }
 
         } catch (error: any) {
             console.error('Erro:', error);
-            Alert.alert('Erro', 'Falha ao criar conta. Reinstale o app para atualizar o banco.');
-            setLoading(false); 
-        } 
+            Alert.alert('Erro no Cadastro', error.message || 'Verifique sua conexão e tente novamente.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     if (isSuccess) {
@@ -131,7 +177,7 @@ export default function RegisterScreen({ onRegisterSuccess, onBack }: Props) {
                         <Text style={styles.successCheckMark}>✓</Text>
                     </View>
                     <Text style={styles.successTitle}>Cadastro Concluído!</Text>
-                    <Text style={styles.successSub}>Sua conta foi criada com sucesso.</Text>
+                    <Text style={styles.successSub}>Sua conta foi criada na nuvem com sucesso.</Text>
                     <ActivityIndicator size="small" color="#4CAF50" style={{ marginTop: 20 }} />
                 </Animated.View>
             </View>
@@ -140,158 +186,157 @@ export default function RegisterScreen({ onRegisterSuccess, onBack }: Props) {
 
     return (
         <ImageBackground source={BACKGROUND_IMAGE} style={styles.backgroundImage} resizeMode="cover">
-            <View style={[styles.overlay, { paddingTop: insets.top, paddingBottom: insets.bottom }]}> {/* Aplica insets aqui */}
-                {/* <SafeAreaView style={styles.safeArea}> REMOVIDO */}
-                    <StatusBar barStyle="light-content" />
-                    <KeyboardAvoidingView 
-                        behavior={Platform.OS === "ios" ? "padding" : "height"}
-                        style={styles.container}
+            <View style={[styles.overlay, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+                <StatusBar barStyle="light-content" />
+                <KeyboardAvoidingView 
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={styles.container}
+                >
+                    <ScrollView 
+                        contentContainerStyle={styles.scrollContent}
+                        showsVerticalScrollIndicator={false}
                     >
-                        <ScrollView 
-                            contentContainerStyle={styles.scrollContent}
-                            showsVerticalScrollIndicator={false}
-                        >
-                            <View style={styles.cardContainer}>
-                                <Text style={styles.titulo}>Crie sua conta</Text>
+                        <View style={styles.cardContainer}>
+                            <Text style={styles.titulo}>Crie sua conta</Text>
 
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.label}>Nome Completo</Text>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Ex: Maria Silva"
-                                        placeholderTextColor="#aaa" 
-                                        value={nome}
-                                        onChangeText={setNome}
-                                        autoCapitalize="words"
-                                        editable={!loading}
-                                    />
-                                </View>
-
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.label}>Telefone / WhatsApp</Text>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="(00) 90000-0000"
-                                        placeholderTextColor="#aaa" 
-                                        value={telefone}
-                                        onChangeText={handleTelefoneChange}
-                                        keyboardType="phone-pad"
-                                        maxLength={15} 
-                                        editable={!loading}
-                                    />
-                                </View>
-
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.label}>E-mail</Text>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="seu@email.com"
-                                        placeholderTextColor="#aaa"
-                                        value={email}
-                                        onChangeText={setEmail}
-                                        keyboardType="email-address"
-                                        autoCapitalize="none"
-                                        editable={!loading}
-                                    />
-                                </View>
-
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.label}>CEP {buscandoCep && <ActivityIndicator size="small" color="#4CAF50" />}</Text>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="00000-000"
-                                        placeholderTextColor="#aaa" 
-                                        value={cep}
-                                        onChangeText={handleCepChange}
-                                        keyboardType="numeric"
-                                        maxLength={9} 
-                                        editable={!loading}
-                                    />
-                                </View>
-
-                                <View style={styles.rowContainer}>
-                                    <View style={[styles.inputGroup, { flex: 2, marginRight: 8 }]}>
-                                        <Text style={styles.label}>Rua</Text>
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder="Nome da Rua"
-                                            placeholderTextColor="#aaa"
-                                            value={rua}
-                                            onChangeText={setRua}
-                                            editable={!loading}
-                                        />
-                                    </View>
-                                    <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-                                        <Text style={styles.label}>Número</Text>
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder="123"
-                                            placeholderTextColor="#aaa"
-                                            value={numero}
-                                            onChangeText={setNumero}
-                                            editable={!loading}
-                                            keyboardType="default"
-                                        />
-                                    </View>
-                                </View>
-
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.label}>Bairro</Text>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Bairro"
-                                        placeholderTextColor="#aaa"
-                                        value={bairro}
-                                        onChangeText={setBairro}
-                                        editable={!loading}
-                                    />
-                                </View>
-
-                                <View style={styles.rowContainer}>
-                                    <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-                                        <Text style={styles.label}>Senha</Text>
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder="******"
-                                            placeholderTextColor="#aaa"
-                                            value={senha}
-                                            onChangeText={setSenha}
-                                            secureTextEntry 
-                                            editable={!loading}
-                                        />
-                                        <Text style={styles.tipText}>Máx. 11 caracteres, letras, números e 2 símbolos (ex: !@).</Text>
-                                    </View>
-
-                                    <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-                                        <Text style={styles.label}>Confirmar</Text>
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder="******"
-                                            placeholderTextColor="#aaa"
-                                            value={confirmarSenha}
-                                            onChangeText={setConfirmarSenha}
-                                            secureTextEntry
-                                            editable={!loading}
-                                        />
-                                    </View>
-                                </View>
-
-                                <TouchableOpacity 
-                                    style={[styles.botao, loading && styles.botaoDisabled]} 
-                                    onPress={handleRegistro}
-                                    disabled={loading}
-                                >
-                                    <Text style={styles.botaoTexto}>{loading ? 'CADASTRANDO...' : 'CRIAR CONTA'}</Text>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity style={styles.backButton} onPress={onBack} disabled={loading}>
-                                    <Text style={styles.backText}>Já possui conta? <Text style={styles.backTextBold}>Voltar</Text></Text>
-                                </TouchableOpacity>
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>Nome Completo</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Ex: Maria Silva"
+                                    placeholderTextColor="#aaa" 
+                                    value={nome}
+                                    onChangeText={setNome}
+                                    autoCapitalize="words"
+                                    editable={!loading}
+                                />
                             </View>
-                        </ScrollView>
-                    </KeyboardAvoidingView>
-                </View>
- </ImageBackground>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>Telefone / WhatsApp</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="(00) 90000-0000"
+                                    placeholderTextColor="#aaa" 
+                                    value={telefone}
+                                    onChangeText={handleTelefoneChange}
+                                    keyboardType="phone-pad"
+                                    maxLength={15} 
+                                    editable={!loading}
+                                />
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>E-mail</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="seu@email.com"
+                                    placeholderTextColor="#aaa"
+                                    value={email}
+                                    onChangeText={setEmail}
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                    editable={!loading}
+                                />
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>CEP {buscandoCep && <ActivityIndicator size="small" color="#4CAF50" />}</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="00000-000"
+                                    placeholderTextColor="#aaa" 
+                                    value={cep}
+                                    onChangeText={handleCepChange}
+                                    keyboardType="numeric"
+                                    maxLength={9} 
+                                    editable={!loading}
+                                />
+                            </View>
+
+                            <View style={styles.rowContainer}>
+                                <View style={[styles.inputGroup, { flex: 2, marginRight: 8 }]}>
+                                    <Text style={styles.label}>Rua</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Nome da Rua"
+                                        placeholderTextColor="#aaa"
+                                        value={rua}
+                                        onChangeText={setRua}
+                                        editable={!loading}
+                                    />
+                                </View>
+                                <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+                                    <Text style={styles.label}>Número</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="123"
+                                        placeholderTextColor="#aaa"
+                                        value={numero}
+                                        onChangeText={setNumero}
+                                        editable={!loading}
+                                        keyboardType="default"
+                                    />
+                                </View>
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>Bairro</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Bairro"
+                                    placeholderTextColor="#aaa"
+                                    value={bairro}
+                                    onChangeText={setBairro}
+                                    editable={!loading}
+                                />
+                            </View>
+
+                            <View style={styles.rowContainer}>
+                                <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+                                    <Text style={styles.label}>Senha</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="******"
+                                        placeholderTextColor="#aaa"
+                                        value={senha}
+                                        onChangeText={setSenha}
+                                        secureTextEntry 
+                                        editable={!loading}
+                                    />
+                                    <Text style={styles.tipText}>Máx. 11, letras, nums e 2 símbolos (ex: !@).</Text>
+                                </View>
+
+                                <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+                                    <Text style={styles.label}>Confirmar</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="******"
+                                        placeholderTextColor="#aaa"
+                                        value={confirmarSenha}
+                                        onChangeText={setConfirmarSenha}
+                                        secureTextEntry
+                                        editable={!loading}
+                                    />
+                                </View>
+                            </View>
+
+                            <TouchableOpacity 
+                                style={[styles.botao, loading && styles.botaoDisabled]} 
+                                onPress={handleRegistro}
+                                disabled={loading}
+                            >
+                                <Text style={styles.botaoTexto}>{loading ? 'SALVANDO NA NUVEM...' : 'CRIAR CONTA'}</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={styles.backButton} onPress={onBack} disabled={loading}>
+                                <Text style={styles.backText}>Já possui conta? <Text style={styles.backTextBold}>Voltar</Text></Text>
+                            </TouchableOpacity>
+                        </View>
+                    </ScrollView>
+                </KeyboardAvoidingView>
+            </View>
+        </ImageBackground>
     );
 }
 
@@ -303,10 +348,7 @@ const styles = StyleSheet.create({
     },
     overlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.4)', // Fundo escurecido (mantém a imagem legível)
-    },
-    safeArea: { 
-        flex: 1, 
+        backgroundColor: 'rgba(0,0,0,0.4)', 
     },
     container: { 
         flex: 1, 
@@ -403,7 +445,6 @@ const styles = StyleSheet.create({
         color: '#ff6600', 
         fontWeight: 'bold', 
     },
-    // --- ESTILOS TELA SUCESSO ---
     successContainer: { 
         flex: 1, 
         backgroundColor: '#f5f7fa', 
