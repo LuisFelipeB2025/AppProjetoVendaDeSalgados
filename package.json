@@ -12,6 +12,8 @@
     "@supabase/supabase-js": "^2.84.0",
     "cors": "^2.8.5",
     "expo": "54.0.21",
+    "expo-contacts": "~15.0.10",
+    "expo-location": "~19.0.7",
     "expo-secure-store": "~15.0.7",
     "expo-sqlite": "~16.0.9",
     "expo-status-bar": "~3.0.8",

@@ -15,9 +15,9 @@ const NUMERO_DA_LOJA = '5521969714096';
 const PRODUTOS_SALGADOS = [
   { id: '1', nome: 'Hambúrguer c/ Catupiry', preco: 6.0, imagem: require('../assets/H1.png'), descricao: 'Um clássico irresistível! Hambúrguer suculento envolto em nossa massa artesanal macia.' },
   { id: '2', nome: 'Hambúrguer c/ Cheddar', preco: 6.0, imagem: require('../assets/H2.png'), descricao: 'Para os amantes de queijo! Carne de hambúrguer saborosa assada na massa douradinha.' },
-  { id: '3', nome: 'Mini Burger c/ Cheddar', preco: 6.0, imagem: require('../assets/MA1.png'), descricao: 'A versão compacta do nosso sucesso. Perfeito para um lanche rápido.' },
-  { id: '4', nome: 'Mini Joelho (Q. e Presunto)', preco: 6.0, imagem: require('../assets/MA2.png'), descricao: 'O famoso Joelho em versão especial. Massa leve recheada com presunto e queijo.' },
-  { id: '5', nome: 'Mini Salsicha c/ Cheddar', preco: 6.0, imagem: require('../assets/MA3.png'), descricao: 'O favorito da garotada! Salsicha de primeira enrolada em massa com cheddar.' },
+  { id: '3', nome: 'Mini Burger c/ Cheddar 10 unidades', preco: 10.0, imagem: require('../assets/MA1.png'), descricao: 'A versão compacta do nosso sucesso. Perfeito para um lanche rápido.' },
+  { id: '4', nome: 'Mini Joelho (Q. e Presunto) 10 unidades', preco: 10.0, imagem: require('../assets/MA2.png'), descricao: 'O famoso Joelho em versão especial. Massa leve recheada com presunto e queijo.' },
+  { id: '5', nome: 'Mini Salsicha c/ Cheddar 10 unidades', preco: 10.0, imagem: require('../assets/MA3.png'), descricao: 'O favorito da garotada! Salsicha de primeira enrolada em massa com cheddar.' },
   { id: '6', nome: 'Enroladinho Salsicha', preco: 6.0, imagem: require('../assets/S1.png'), descricao: 'Enroladinho de salsicha tamanho grande. Maravilhoso!' },
 ];
 

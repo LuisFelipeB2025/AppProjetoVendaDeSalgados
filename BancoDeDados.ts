@@ -3,8 +3,14 @@ import * as SecureStore from 'expo-secure-store';
 import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native'; 
 
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://enontzybkuxrbyrekswh.supabase.co';
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVub250enlia3V4cmJ5cmVrc3doIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM1NzE2MjgsImV4cCI6MjA3OTE0NzYyOH0.RSJTgrQxTHq8KTPfLtvzHyEwvo9VzGbkqkeQwVVR-8Q';
+declare const process: { env: { [key: string]: string | undefined } };
+
+const SUPABASE_URL = ''; 
+const SUPABASE_ANON_KEY = '';
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error("🚨 ERRO CRÍTICO: Chaves do Supabase não definidas no código!");
+}
 
 const ExpoSecureStoreAdapter = {
   getItem: (key: string) => {

@@ -1,15 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform, KeyboardAvoidingView, ScrollView, ImageBackground, Image, StatusBar, Alert} from 'react-native';
-
-
-import { supabase } from '../BancoDeDados';
-
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform, KeyboardAvoidingView, ScrollView, ImageBackground, Image, StatusBar, Alert } from 'react-native';
+import { supabase } from '../BancoDeDados'; 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-type LoginScreenProps = { 
-    onLogin: (user: any) => void; 
-    onNavigateToRegister: () => void; 
-};
+type LoginScreenProps = { onLogin: (user: any) => void; onNavigateToRegister: () => void; };
 
 export default function LoginScreen({ onLogin, onNavigateToRegister }: LoginScreenProps) {
     const [email, setEmail] = useState('');
@@ -18,61 +12,34 @@ export default function LoginScreen({ onLogin, onNavigateToRegister }: LoginScre
     const [loginError, setLoginError] = useState('');
     
     const insets = useSafeAreaInsets(); 
-
- 
     const BACKGROUND_IMAGE = require('../assets/IMGF.png'); 
     const LOGO_IMAGE = require('../assets/LGT.png');
 
-    // --- LÓGICA DE LOGIN (SUPABASE) ---
     const handleLoginPress = async () => {
         setLoginError('');
-        
-        if (!email || !senha) { 
-            setLoginError("Preencha e-mail e senha."); 
-            return; 
-        }
-    
+        if (!email || !senha) { setLoginError("Preencha e-mail e senha."); return; }
         setLoading(true);
         try {
-            
-            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-                email: email,
-                password: senha,
-            });
+            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password: senha });
+            if (authError) throw new Error("E-mail ou senha incorretos.");
 
-            if (authError) {
-                throw new Error("E-mail ou senha incorretos.");
+            let { data: userData, error: userError } = await supabase
+                .from('usuarios').select('*').eq('email', email).single();
+
+            // AUTO-RECUPERAÇÃO DE PERFIL
+            if (!userData) {
+                const novoPerfil = { email, nome: 'Usuário Recuperado', last_login: new Date().toISOString() };
+                const { data: perfilCriado } = await supabase.from('usuarios').insert(novoPerfil).select().single();
+                userData = perfilCriado;
             }
 
-            
-            const { data: userData, error: userError } = await supabase
-                .from('usuarios')
-                .select('*')
-                .eq('email', email)
-                .single();
-
-           
-            if (userError || !userData) {
-                
-                if (userError?.code === 'PGRST116' || !userData) {
-                    throw new Error("Login correto, mas perfil não encontrado. Tente criar a conta novamente.");
-                }
-                throw new Error("Erro ao buscar perfil do usuário.");
-            }
-
-            
             const now = new Date().toISOString(); 
-            await supabase
-                .from('usuarios')
-                .update({ last_login: now })
-                .eq('id', userData.id);
+            await supabase.from('usuarios').update({ last_login: now }).eq('id', userData.id);
 
-            
             onLogin({ ...userData, last_login: now });
-
         } catch (error: any) {
-            console.error("Erro Login:", error);
-            setLoginError(error.message || "Erro ao conectar.");
+            console.error(error);
+            setLoginError(error.message || "Erro no login.");
         } finally {
             setLoading(false);
         }
@@ -81,59 +48,20 @@ export default function LoginScreen({ onLogin, onNavigateToRegister }: LoginScre
     return (
         <ImageBackground source={BACKGROUND_IMAGE} style={styles.backgroundImage} resizeMode="cover">
              <View style={[styles.overlay, { paddingTop: insets.top, paddingBottom: insets.bottom }]}> 
-                
                     <StatusBar barStyle="light-content" />
-                    <KeyboardAvoidingView 
-                        behavior={Platform.OS === "ios" ? "padding" : "height"} 
-                        style={styles.container}
-                    >
+                    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.container}>
                         <ScrollView contentContainerStyle={styles.scrollContainer}>
-                            <View style={styles.logoContainer}>
-                                <Image source={LOGO_IMAGE} style={styles.logo} />
-                            </View>
-                            
+                            <View style={styles.logoContainer}><Image source={LOGO_IMAGE} style={styles.logo} /></View>
                             <View style={styles.formContainer}>
                                 <Text style={styles.title}>Bem-vindo</Text>
-                                
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.label}>E-mail</Text>
-                                    <TextInput 
-                                        style={styles.input} 
-                                        placeholder="exemplo@email.com" 
-                                        placeholderTextColor="#999"
-                                        keyboardType="email-address" 
-                                        autoCapitalize="none"
-                                        value={email} 
-                                        onChangeText={setEmail} 
-                                        editable={!loading}
-                                    />
-                                </View>
-
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.label}>Senha</Text>
-                                    <TextInput 
-                                        style={styles.input} 
-                                        placeholder="******" 
-                                        secureTextEntry 
-                                        value={senha} 
-                                        onChangeText={setSenha} 
-                                        editable={!loading}
-                                    />
-                                </View>
-
+                                <View style={styles.inputGroup}><Text style={styles.label}>E-mail</Text><TextInput style={styles.input} placeholder="exemplo@email.com" placeholderTextColor="#999" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} editable={!loading}/></View>
+                                <View style={styles.inputGroup}><Text style={styles.label}>Senha</Text><TextInput style={styles.input} placeholder="******" secureTextEntry value={senha} onChangeText={setSenha} editable={!loading}/></View>
                                 {loginError ? <Text style={styles.errorText}>{loginError}</Text> : null}
-                                
-                                <TouchableOpacity style={styles.button} onPress={handleLoginPress} disabled={loading}>
-                                    <Text style={styles.buttonText}>{loading ? "Entrando..." : "Entrar"}</Text>
-                                </TouchableOpacity>
-                                
-                                <TouchableOpacity style={styles.registerLink} onPress={onNavigateToRegister} disabled={loading}>
-                                    <Text style={styles.registerText}>Criar conta</Text>
-                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.button} onPress={handleLoginPress} disabled={loading}><Text style={styles.buttonText}>{loading ? "Entrando..." : "Entrar"}</Text></TouchableOpacity>
+                                <TouchableOpacity style={styles.registerLink} onPress={onNavigateToRegister} disabled={loading}><Text style={styles.registerText}>Criar conta</Text></TouchableOpacity>
                             </View>
                         </ScrollView>
                     </KeyboardAvoidingView>
-                
             </View>
         </ImageBackground>
     );

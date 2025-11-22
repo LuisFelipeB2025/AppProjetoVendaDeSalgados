@@ -13,15 +13,24 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Precisamos da sua localização para preencher o endereço de entrega automaticamente.",
+        "NSContactsUsageDescription": "Precisamos acessar seus contatos para facilitar o compartilhamento do app."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "READ_CONTACTS",
+        "WRITE_CONTACTS"
+      ],
+      "package": "com.enzoreisti.salgado"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -29,6 +38,11 @@
     "plugins": [
       "expo-sqlite",
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "a8bd90fe-5690-41c6-964b-d8c12e7d7524"
+      }
+    }
   }
 }
